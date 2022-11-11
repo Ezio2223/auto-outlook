@@ -1,0 +1,139 @@
+#1 使用前准备
+#1.1 需要应用的库，如果没安装会导致无法运行
+import win32com.client as win32
+import re
+import pandas as pd
+import csv
+from time import sleep
+
+
+
+#1.2 excel路径、签名设置（需要手动修改）
+received_data = pd.read_excel(r"D:\auto-outlook\files\outdoor_result.xlsx")   #替换表格所在位置，每次都要修改
+sender_name = "蔡添翼"                                                #用于签名，修改一次即可
+
+#1.2.1 商务与事业部对应关系(商务对应事业部更改时需要更新)
+yangmeng_affair = "电脑数码事业部，通讯事业部，配件事业部，生活服务事业群"
+dongming_affair = "食品生鲜事业部"
+zhaixiang_affair = "家电事业部"
+linfanmin_affair = "酒类业务部，京东健康，全球购业务部"
+zhouxiaowen_affair = "非食品事业部，宠物业务部"
+wangyi_affair = "美妆事业部，时尚事业部，居家事业部，奢品钟表部，运动户外事业部"
+
+
+#1.2.2 签名转化为outlook邮箱使用的html体
+mail_sign='\n'+'\n'+'''<p class="MsoNormal"><span lang="EN-US"><o:p>&nbsp;</o:p></span></p><p class="MsoNormal" align="left" style="margin-top:6.0pt;mso-para-margin-top:.5gd;text-align:left;line-height:17.0pt"><span style="font-size:14.0pt;font-family:&quot;京东朗正体 纤秀&quot;;color:#595959">'''+sender_name+'''<span lang="EN-US"><o:p></o:p></span></span></p>
+<p class="MsoNormal" align="left" style="margin-top:6.0pt;mso-para-margin-top:.5gd;text-align:left;line-height:17.0pt"><span lang="EN-US" style="font-size:10.0pt;font-family:&quot;京东朗正体 纤秀&quot;;color:#3B3838;background:white">JDR-</span><span style="font-size:10.0pt;font-family:&quot;京东朗正体 纤秀&quot;;color:#3B3838;background:white">'''+'''市场营销与用户增长部-媒介平台部-东联业务部'''+'''</span><span lang="EN-US" style="font-size:11.0pt;font-family:&quot;Cambria&quot;,serif;color:#3B3838">&nbsp;</span><span lang="EN-US" style="font-size:14.0pt;font-family:&quot;京东朗正体 纤秀&quot;;color:#595959"><o:p></o:p></span></p>'''
+
+
+#1.2.3 将excel形式变成pandas数据形式
+content_data = pd.DataFrame(received_data)
+
+
+
+
+
+#2 信息获取
+#2.1 月份、截止日期与签名填写（运行后填写）
+current_month = str(input("请输入监播月份(xx月)"))
+dead_line = str(input("请输入截止日期（xx月xx日）"))
+
+
+
+
+
+
+for i in range(0,len(content_data)):        #从第0行开始执行，一直执行到“content_data”这个表中的最后一行
+
+#2.2.1获取品牌邮箱和抄送信息
+    brand_name=str(content_data.loc[i,"品牌"]) #从表格获取品牌名称
+    
+    receiver = str(content_data.loc[i,"对接人邮箱"])   #如果相等就把品牌商后面的邮箱赋给receiver(限制：邮箱只能有一个)
+    cc_brand = str(content_data.loc[i,"抄送"]) 
+    
+    
+    if cc_brand in 'NaN,NaT,nan,nat,NAN,NAT,0':    #如果品牌抄送是空则输出空格
+        cc_brand_ac = ' '
+    else :
+        cc_brand_ac = str(cc_brand)  
+        
+        
+        
+
+
+            
+            
+#2.2.1 获取正文具体信息
+    #把content_data中表格信息转换为文字形式（br/是html语言中的换行\t是python语言中的大空格）
+    brand_info =  '''<span lang="EN-US" style="font-size:10.0pt;font-family:京东朗正体">'''+'''<br/>'''+"项目ID\t"+ str(content_data.loc[i,"主ID"])+'''<br/>'''+"子项目ID\t"+ str(content_data.loc[i,"子项目ID"])+'''<br/>'''+"品牌商\t"+str(content_data.loc[i,"品牌"])+'''<br/>'''+"所属事业部\t"+ str(content_data.loc[i,"事业部"])+'''<br/>'''+"媒体类型\t"+str(content_data.loc[i,"媒体类型"])+'''<br/>'''+"细分媒介\t"+ str(content_data.loc[i,"细分媒介"])+'''<br/>'''+'''<span style="color:red">'''+'''错漏刊率\t'''+ str(content_data.loc[i,"错刊率"]) +'''<br/>'''+"预计扣款（万）\t"+ str(content_data.loc[i,"预计扣款（万）"])+'''<br/>'''+"异常主要原因\t"+ str(content_data.loc[i,"异常主要原因"])+'''<span lang="EN-US">'''+'''</span>'''  
+     
+#3 编辑邮箱
+#3.1 创建新邮箱
+    outlook = win32.Dispatch('Outlook.Application')
+    mail_item = outlook.CreateItem(0) 
+
+#3.2 自动添加收件人
+    mail_item.Recipients.Add(receiver)
+    
+#3.3 抄送---需要抄送：1.品牌抄送；  2.商务；  3.固定抄送的萌萌姐
+#3.3.1 根据所属事业部选择抄送商务    
+    if (str(content_data.loc[i,"事业部"]) in yangmeng_affair ):
+        cc_BD='yangmeng10@jd.com; '
+        Carbo_copy='杨蒙'
+    elif (str(content_data.loc[i,"事业部"]) in dongming_affair ):
+        cc_BD='dongming1@jd.com; '
+        Carbo_copy='董鸣'
+    elif (str(content_data.loc[i,"事业部"]) in linfanmin_affair ):
+        cc_BD='linfanmin@jd.com; '
+        Carbo_copy='林凡敏'
+    elif (str(content_data.loc[i,"事业部"]) in zhaixiang_affair ):
+        cc_BD='zhaixiang@jd.com; '
+        Carbo_copy='翟翔'
+    elif (str(content_data.loc[i,"事业部"]) in zhouxiaowen_affair):
+        cc_BD = 'zhouxiaowen5@jd.com; '
+        Carbo_copy='周晓雯 '
+    elif (str(content_data.loc[i,"事业部"]) in wangyi_affair):
+        cc_BD = 'wangyi39@jd.com; '
+        Carbo_copy='王翌 '
+    else :
+        print(str(content_data.loc[i,"品牌"]),"不知商务是谁")
+        cc_BD = ''
+
+
+#3.3.2 固定抄送萌萌姐
+    mail_setcc = 'huomeng@jd.com'            #日后如果更改监管人在引号里改
+        
+        
+#3.3.3 添加品牌抄送
+    mail_cc1 = mail_setcc + '; '+cc_BD +  cc_brand_ac#1.品牌抄送+固定抄送的萌萌姐+商务
+        
+    mail_cc = str(mail_cc1)  #将抄送的所有邮箱地址变为字符串格式
+    
+    #mail_item.cc = mail_cc   #outlook添加抄送操作
+    
+    
+    
+#3.4 邮件标题
+    mail_item.Subject = current_month+'户外东联监播结果'    
+    
+    
+    
+#3.5 邮件正文
+    mail_body='''<p class="MsoNormal"><span lang="EN-US" style="font-size:10.0pt;font-family:京东朗正体">'''+'''Dear'''+'''</span><span style="font-size:10.0pt;font-family:京东朗正体;color:black">'''+brand_name+'''</span>'''+'''<span lang="EN-US" style="font-size:10.0pt;font-family:京东朗正体"><o:p></o:p></span></p><p class="MsoNormal" style="text-indent:21.0pt"><span style="font-size:10.0pt;font-family:京东朗正体"><span lang="EN-US">'''+current_month+'''</span>'''+'''户外监播抽查已完成，具体异常点位明细已上传至东联后台，可自行登录东联后台查看详情https://cobrand.jd.com/monitor_index。'''+'''</p><p class="MsoNormal" style="text-indent:21.0pt">'''+'''户外监播抽查以东联系统提交的排期表、点位表为准展开，以抽查结果输出此项目错刊率，请确认此投放异常情况，如有疑义可邮件提供证明。如确实漏播无需回复邮件，会按户外监播罚则计算此项目错刊率，东联币发放会等比例扣减。'''+'''</span>'''+'''<span style="font-size:10.0pt;font-family:京东朗正体"><u><span lang="EN-US">'''+dead_line+'''12:00之前未回复的将按错漏刊率扣减'''+'''</span></u>'''+'''<span style="font-size:10.0pt;font-family:京东朗正体">，<b><span style="color:red">'''+'''请关注此邮件'''+'''<span lang="EN-US">'''+'''~'''+'''</span></span></b><span lang="EN-US"><o:p></o:p></span></span></p><p class="MsoNormal"><span lang="EN-US"><o:p>&nbsp;</o:p></span></p>'''
+    #这句就是话术，用京东郎正体的html语言形式（因为outlook只能识别html语言）
+
+    mail_item.BodyFormat = 2  #表示该邮件正文接受HTML形式
+
+    mail_item.HTMLBody = mail_body + brand_info + mail_sign #正文=邮件话术+表格中品牌信息（见2.2.1）+签名（见1.2姓名和1.2.2字体）
+
+
+        
+        
+#3.7 发送
+    sleep(3)           #等待三秒钟，不然会封号
+
+    mail_item.Send()   #python的win32库中的发邮件指令
+    
+    num = str(i+1)
+    print( num +'\t'+'\n',"品牌商\t"+ receiver + str(content_data.loc[i,"品牌"]),'\t抄送：'+mail_cc + '\n'+ "项目ID\t"+ str(content_data.loc[i,"主ID"])+ '\n'+"子项目ID\t"+ str(content_data.loc[i,"子项目ID"])+ '\n'+"品牌商\t"+str(content_data.loc[i,"品牌"])+ '\n'+ "所属事业部\t"+ str(content_data.loc[i,"事业部"])+ '\n'+"媒体类型\t"+str(content_data.loc[i,"媒体类型"])+'\n'+ "细分媒介\t"+ str(content_data.loc[i,"细分媒介"])+'\n'+'''错漏刊率\t'''+ str(content_data.loc[i,"错刊率"]) + '\n'+"预计扣款（万）\t"+ str(content_data.loc[i,"预计扣款（万）"])+ '\n'+"异常主要原因\t"+ str(content_data.loc[i,"异常主要原因"]))
+    sleep(3)            #等待三秒钟，不然会封号
